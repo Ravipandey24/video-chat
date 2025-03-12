@@ -79,6 +79,7 @@ export const videos = pgTable("videos", {
   duration: integer("duration"), // in seconds
   userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
   isProcessed: boolean("is_processed").default(false),
+  isRemoved: boolean("is_removed").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -92,6 +93,18 @@ export const conversations = pgTable("conversations", {
   }),
   userId: text("user_id").references(() => users.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at").defaultNow(),
+});
+
+
+export const frameAnalyses = pgTable('frame_analyses', {
+  id: serial('id').primaryKey(),
+  frameUrl: text('frame_url').notNull(),
+  description: text('description').notNull(),
+  position: integer('position').notNull(),
+  videoId: integer('video_id').notNull()
+    .references(() => videos.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
 });
 
 /**

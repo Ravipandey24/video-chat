@@ -2,13 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { Message as AIMessage } from "ai";
 import { OpenAI } from "openai";
 import { db } from "@/lib/db";
-import { messages, conversations, videos } from "@/lib/db/schema";
+import {
+  messages,
+  conversations,
+  videos,
+  frameAnalyses,
+} from "@/lib/db/schema";
 import { getServerSession } from "next-auth";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, asc } from "drizzle-orm";
 import { authOptions } from "@/lib/auth";
 
-// Create AI SDK OpenAI client (this is different from the direct OpenAI client)
-const openai = new OpenAI({
+// Configure client for text model only - we don't need vision model anymore
+const textModelClient = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
@@ -21,43 +26,43 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    
+
     // Support both direct API calls and AI SDK format
     const videoId = body.videoId;
-    
+
     // Extract message from either format
     let currentMessage = body.message;
     let messageHistory: AIMessage[] = [];
-    
+
     // If using AI SDK format with messages array
     if (body.messages && Array.isArray(body.messages)) {
       messageHistory = body.messages;
-      
+
       // Get the most recent user message
-      const userMessages = messageHistory
-        .filter(m => m.role === 'user');
-      
+      const userMessages = messageHistory.filter((m) => m.role === "user");
+
       if (userMessages.length > 0) {
         currentMessage = userMessages[userMessages.length - 1].content;
       }
     }
 
     if (!videoId || !currentMessage) {
-      console.error("Invalid request:", { videoId, message: currentMessage, body });
+      console.error("Invalid request:", {
+        videoId,
+        message: currentMessage,
+        body,
+      });
       return new NextResponse("Missing required fields", { status: 400 });
     }
 
-    // Get video data including frame URLs
+    // Get video data (without relying on frameUrls)
     const video = await db.query.videos.findFirst({
       where: eq(videos.id, videoId),
     });
+    console.log("Video data:", video);
 
-    if (
-      !video ||
-      !video.frameUrls ||
-      (video.frameUrls as string[]).length === 0
-    ) {
-      return new NextResponse("Video not found or frames not available", {
+    if (!video) {
+      return new NextResponse("Video not found", {
         status: 404,
       });
     }
@@ -93,79 +98,188 @@ export async function POST(req: NextRequest) {
     });
 
     // Get previous messages for context
-    // Get more messages (up to 10) for better context
     const dbMessages = await db
       .select()
       .from(messages)
       .where(eq(messages.conversationId, conversation.id))
       .orderBy(desc(messages.createdAt))
       .limit(10);
-    
+
     // Reverse to get chronological order
     const prevMessages = dbMessages.reverse();
 
-    // Create content array with frames for visual context
-    const frameUrls = video.frameUrls as string[];
+    // Build message history for final LLM context
+    const chatHistory =
+      messageHistory.length > 0
+        ? buildMessageHistoryFromAISDK(messageHistory)
+        : buildMessageHistoryFromDB(prevMessages);
+
+    // Fetch ALL frame analyses for this video directly from the database ordered by position
+    console.log("Fetching frame analyses from database for video", videoId);
+    const frameAnalysesData = await db.query.frameAnalyses.findMany({
+      where: eq(frameAnalyses.videoId, videoId),
+      orderBy: [asc(frameAnalyses.position)],
+    });
     
-    // Select frames based on video length
-    const selectedFrames = selectRelevantFrames(frameUrls);
-    
-    // Build message history for OpenAI
-    // If we have message history from AI SDK, use that
-    // Otherwise build from database messages
-    const chatHistory = messageHistory.length > 0 
-      ? buildMessageHistoryFromAISDK(messageHistory)
-      : buildMessageHistoryFromDB(prevMessages);
-    
-    // Create the vision request with both frames and the latest question
-    const visionRequest = createVisionRequest(currentMessage, selectedFrames, video.title);
-    
-    // Complete messages array for OpenAI
+    console.log(`Found ${frameAnalysesData.length} frame analyses in database`);
+
+    // If we have no analyses at all, return an error
+    if (frameAnalysesData.length === 0) {
+      return new NextResponse("No frame analyses available for this video", {
+        status: 408,
+      });
+    }
+
+    // Format all frame descriptions into a single string
+    const consolidatedFrameInfo = formatFrameDescriptions(frameAnalysesData);
+
+    // Create system message with enhanced context including frame descriptions
+    const enhancedSystemMessage = {
+      role: "system" as const,
+      content: `You are a helpful assistant that answers questions about videos. The user is asking about the video titled "${
+        video.title
+      }".
+${video.description ? `The video description is: "${video.description}".` : ""}
+
+I have analyzed the key frames from this video and will provide detailed descriptions of what I can see:
+
+${consolidatedFrameInfo}
+
+When answering the user's question:
+1. Use specific information from the frame descriptions to support your answers
+2. Reference visual elements mentioned in the descriptions
+3. If the frame descriptions don't contain information relevant to the question, explain what information is available and what might be missing
+4. Keep responses concise and focused on the question`,
+    };
+
+    // Complete messages array for the text-based LLM model
     const completeMessages = [
-      createSystemMessage(video.title, video.description),
+      enhancedSystemMessage,
       ...chatHistory,
-      visionRequest
+      {
+        role: "user" as const,
+        content: currentMessage,
+      },
     ];
 
-    // Using the AI SDK's streaming pattern
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+    // Use text-based LLM for the final response
+    const response = await textModelClient.chat.completions.create({
+      model: "gpt-4o-mini", // Using text-based model
       messages: completeMessages,
       max_tokens: 500,
       temperature: 0.7,
       stream: true,
     });
 
-    let fullResponse = '';
-    
-    // Use Response.json pattern with streams
+    // Return streaming response
     return new Response(
       new ReadableStream({
         async start(controller) {
           const encoder = new TextEncoder();
-          
-          for await (const chunk of response) {
-            // Extract the content delta
-            const content = chunk.choices[0]?.delta?.content || '';
-            if (content) {
-              controller.enqueue(encoder.encode(content));
-              fullResponse += content;
+
+          try {
+            // Generate a consistent ID for all chunks in this response
+            const responseId = `chatcmpl-${Date.now()}`;
+            let fullResponse = "";
+
+            // Send the initial role chunk - this follows AI SDK expectations
+            const initialChunk = {
+              id: responseId,
+              object: "chat.completion.chunk",
+              created: Math.floor(Date.now() / 1000),
+              model: "gpt-4o-mini",
+              choices: [
+                {
+                  index: 0,
+                  delta: {
+                    role: "assistant",
+                  },
+                  finish_reason: null,
+                },
+              ],
+            };
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(initialChunk)}\n\n`)
+            );
+
+            for await (const chunk of response) {
+              if (chunk.choices?.[0]?.delta?.content) {
+                const content = chunk.choices[0].delta.content;
+
+                // Format chunk to match OpenAI's streaming format
+                const formattedChunk = {
+                  id: responseId,
+                  object: "chat.completion.chunk",
+                  created: Math.floor(Date.now() / 1000),
+                  model: "gpt-4o-mini",
+                  choices: [
+                    {
+                      index: 0,
+                      delta: {
+                        content: content,
+                      },
+                      finish_reason: null,
+                    },
+                  ],
+                };
+
+                // Send the chunk to the client
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify(formattedChunk)}\n\n`)
+                );
+                fullResponse += content;
+              }
             }
+
+            // Send the final closing chunk (with empty delta and finish_reason)
+            const finalChunk = {
+              id: responseId,
+              object: "chat.completion.chunk",
+              created: Math.floor(Date.now() / 1000),
+              model: "gpt-4o-mini",
+              choices: [
+                {
+                  index: 0,
+                  delta: {},
+                  finish_reason: "stop",
+                },
+              ],
+            };
+            controller.enqueue(
+              encoder.encode(`data: ${JSON.stringify(finalChunk)}\n\n`)
+            );
+
+            // Send the DONE marker for compatibility
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+
+            // Save to database
+            if (fullResponse) {
+              await db.insert(messages).values({
+                conversationId: conversation.id,
+                content: fullResponse,
+                role: "assistant",
+              });
+            }
+          } catch (error) {
+            console.error("Streaming error:", error);
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  error: "Error generating response",
+                })}\n\n`
+              )
+            );
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+          } finally {
+            controller.close();
           }
-          
-          // Save the complete response to database
-          await db.insert(messages).values({
-            conversationId: conversation.id,
-            content: fullResponse,
-            role: "assistant",
-          });
-          
-          controller.close();
         },
       }),
       {
         headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache, no-transform",
+          Connection: "keep-alive",
         },
       }
     );
@@ -175,34 +289,20 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// Helper function to select relevant frames from the video
-function selectRelevantFrames(frameUrls: string[], maxFrames = 6): string[] {
-  if (!frameUrls || frameUrls.length === 0) return [];
-  
-  const frameCount = frameUrls.length;
-  const selectedFrames: string[] = [];
-
-  if (frameCount <= maxFrames) {
-    // If we have fewer frames than our max, use all of them
-    selectedFrames.push(...frameUrls);
-  } else {
-    // Pick evenly spaced frames
-    const step = Math.floor(frameCount / maxFrames);
-    for (let i = 0; i < maxFrames; i++) {
-      const index = i * step;
-      if (index < frameCount) {
-        selectedFrames.push(frameUrls[index]);
-      }
-    }
-  }
-  
-  return selectedFrames;
+// Format frame descriptions into a single string, using position value from DB
+function formatFrameDescriptions(frameAnalysesData: any[]): string {
+  return frameAnalysesData
+    .map((analysis) => {
+      // Use the actual position value from the database, adding 1 for human-readable numbering
+      return `Frame ${analysis.position + 1}: ${analysis.description.trim()}`;
+    })
+    .join("\n\n");
 }
 
 // Helper function to build message history from AI SDK format
 function buildMessageHistoryFromAISDK(messages: AIMessage[]) {
-  // Exclude the last user message as it will be combined with the vision request
-  return messages.slice(0, -1).map(msg => ({
+  // Exclude the last user message as it will be handled separately
+  return messages.slice(0, -1).map((msg) => ({
     role: msg.role as "user" | "assistant" | "system",
     content: msg.content,
   }));
@@ -211,43 +311,8 @@ function buildMessageHistoryFromAISDK(messages: AIMessage[]) {
 // Helper function to build message history from database records
 function buildMessageHistoryFromDB(messages: any[]) {
   // Exclude the last message (which is the current user question)
-  return messages.slice(0, -1).map(msg => ({
+  return messages.slice(0, -1).map((msg) => ({
     role: msg.role as "user" | "assistant" | "system",
     content: msg.content,
   }));
-}
-
-// Helper function to create the system message
-function createSystemMessage(videoTitle: string, videoDescription?: string | null) {
-  let systemPrompt = `You are a helpful assistant that answers questions about videos. The user is asking about the video titled "${videoTitle}".`;
-  
-  if (videoDescription) {
-    systemPrompt += ` The video description is: "${videoDescription}".`;
-  }
-  
-  systemPrompt += ` You're seeing key frames from this video. Provide accurate, concise answers based on what you can see in these frames. If the answer isn't visible in the frames, say so politely.`;
-  
-  return {
-    role: "system" as const,
-    content: systemPrompt,
-  };
-}
-
-// Helper function to create the vision request with images
-function createVisionRequest(message: string, frameUrls: string[], videoTitle: string) {
-  const contentArray = [
-    { type: "text" as const, text: `Question about the video "${videoTitle}": ${message}` },
-    ...frameUrls.map((frameUrl) => ({
-      type: "image_url" as const,
-      image_url: {
-        url: frameUrl,
-        detail: "low" as const,
-      },
-    })),
-  ];
-  
-  return {
-    role: "user" as const,
-    content: contentArray,
-  };
 }

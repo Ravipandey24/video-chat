@@ -16,7 +16,7 @@ export default async function UploadPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto py-8">
+    <div className="max-w-3xl mx-auto p-4">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight mb-2">Upload Video</h1>
         <p className="text-muted-foreground">
@@ -33,7 +33,7 @@ export default async function UploadPage() {
           <li>Upload videos with clear visuals for better analysis</li>
           <li>Keep videos under 10 minutes for optimal processing</li>
           <li>Supported formats: MP4, MOV, WebM</li>
-          <li>Maximum file size: 500MB</li>
+          <li>Maximum file size: 50MB</li>
           <li>Processing can take a few minutes depending on video length</li>
         </ul>
       </div>

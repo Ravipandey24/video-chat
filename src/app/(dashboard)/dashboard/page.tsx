@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { videos } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import Link from "next/link";
 import Image from "next/image";
 import { Video, Upload, Clock } from "lucide-react";
@@ -24,12 +24,12 @@ export default async function DashboardPage() {
 
   // Fetch user's videos
   const userVideos = await db.query.videos.findMany({
-    where: eq(videos.userId, session.user.id),
+    where: and(eq(videos.userId, session.user.id), eq(videos.isRemoved, false)),
     orderBy: (videos, { desc }) => [desc(videos.createdAt)],
   });
 
   return (
-    <div className="space-y-8">
+    <div className="p-4 space-y-8">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Your Videos</h1>
         <Link href="/upload">

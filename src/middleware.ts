@@ -32,6 +32,10 @@ export async function middleware(req: NextRequest) {
     req,
     secret: process.env.NEXTAUTH_SECRET,
   });
+
+  if (path.startsWith("/auth/register")) {
+    return NextResponse.redirect(new URL("/", req.url));
+  }
   
   // Redirect to login if no token and on a protected path
   if (!token && isProtectedPath) {

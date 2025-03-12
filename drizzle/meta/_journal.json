@@ -8,6 +8,20 @@
       "when": 1741787591111,
       "tag": "0000_rare_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1741805566990,
+      "tag": "0001_loving_captain_britain",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1741817670016,
+      "tag": "0002_little_bulldozer",
+      "breakpoints": true
     }
   ]
 }
