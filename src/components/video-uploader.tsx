@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50 MB
 const ALLOWED_FILE_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 const MAX_DURATION = 600; // 10 minutes in seconds
 const MAX_FRAMES = 300; // Maximum number of frames to extract (cap at 5 minutes worth)
