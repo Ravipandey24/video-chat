@@ -13,32 +13,10 @@ import { formatDistanceToNow } from 'date-fns';
 import { CalendarIcon, PlayCircleIcon, MessageSquareIcon } from 'lucide-react';
 
 // Generate metadata for the page
-export async function generateMetadata({ params }: { params: { id: string } }) {
-  const videoId = parseInt(params.id);
-  
-  if (isNaN(videoId)) {
-    return {
-      title: 'Video Not Found',
-      description: 'The requested video could not be found',
-    };
-  }
-  
-  const video = await db.query.videos.findFirst({
-    where: eq(videos.id, videoId),
-  });
-  
-  if (!video) {
-    return {
-      title: 'Video Not Found',
-      description: 'The requested video could not be found',
-    };
-  }
-  
-  return {
-    title: `${video.title} - Video Q&A`,
-    description: video.description || `Ask questions about ${video.title}`,
-  };
-}
+export const metadata = {
+  title: "Video - Video Q&A",
+  description: "Watch and interact with your uploaded video",
+};
 
 export default async function VideoPage({ params }: { params: Promise<{ id: string }> }) {
   // Check authentication
