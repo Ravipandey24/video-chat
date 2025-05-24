@@ -5,8 +5,7 @@ import { getToken } from "next-auth/jwt";
 const protectedPaths = [
   "/dashboard",
   "/upload",
-  "/video",
-  "/"
+  "/video"
 ];
 
 // Auth middleware
@@ -34,7 +33,7 @@ export async function middleware(req: NextRequest) {
   });
 
   if (path.startsWith("/auth/register")) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return NextResponse.next();
   }
   
   // Redirect to login if no token and on a protected path
@@ -44,7 +43,7 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Special handling for root path - redirect to dashboard if authenticated
+  // Redirect authenticated users to dashboard when they try to access the landing page
   if (path === "/" && token) {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }

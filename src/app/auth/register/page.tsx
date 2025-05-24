@@ -82,25 +82,25 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
+    <div className="flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-muted/30">
+      <Card className="w-full max-w-md shadow-lg border-muted/20">
         <form onSubmit={handleSubmit}>
-          <CardHeader className="space-y-1">
-            <CardTitle className="text-2xl font-bold">Create an account</CardTitle>
-            <CardDescription>
-              Enter your information to create an account
+          <CardHeader className="space-y-2 pb-6">
+            <CardTitle className="text-2xl font-bold tracking-tight">Create an account</CardTitle>
+            <CardDescription className="text-muted-foreground/80">
+              Enter your information to get started with Video Q&A
             </CardDescription>
           </CardHeader>
           
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-5 pt-2">
             {error && (
-              <Alert variant="destructive">
-                <AlertDescription>{error}</AlertDescription>
+              <Alert variant="destructive" className="border-destructive/30 text-destructive">
+                <AlertDescription className="flex items-center">{error}</AlertDescription>
               </Alert>
             )}
             
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="name">
+              <label className="text-sm font-medium tracking-tight" htmlFor="name">
                 Name
               </label>
               <Input
@@ -110,11 +110,12 @@ export default function RegisterPage() {
                 onChange={(e) => setName(e.target.value)}
                 required
                 disabled={isLoading}
+                className="h-10"
               />
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="email">
+              <label className="text-sm font-medium tracking-tight" htmlFor="email">
                 Email
               </label>
               <Input
@@ -125,11 +126,12 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 disabled={isLoading}
+                className="h-10"
               />
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="password">
+              <label className="text-sm font-medium tracking-tight" htmlFor="password">
                 Password
               </label>
               <Input
@@ -140,11 +142,12 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 disabled={isLoading}
+                className="h-10"
               />
             </div>
             
             <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="confirmPassword">
+              <label className="text-sm font-medium tracking-tight" htmlFor="confirmPassword">
                 Confirm Password
               </label>
               <Input
@@ -155,12 +158,16 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 disabled={isLoading}
+                className="h-10"
               />
             </div>
           </CardContent>
           
-          <CardFooter className="flex flex-col">
-            <Button className="w-full mb-4" disabled={isLoading}>
+          <CardFooter className="flex flex-col space-y-4 pt-2">
+            <Button 
+              className="w-full h-11 font-medium shadow-sm transition-all" 
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -175,7 +182,7 @@ export default function RegisterPage() {
               Already have an account?{" "}
               <Link
                 href="/auth/login"
-                className="text-primary hover:underline"
+                className="text-primary font-medium hover:underline transition-colors"
               >
                 Sign in
               </Link>

@@ -2,11 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '@ai-sdk/react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, MessageSquare } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 import { toast } from 'sonner';
 import { useSession } from 'next-auth/react';
 import { cn } from '@/lib/utils';
@@ -104,20 +106,40 @@ export default function ChatInterface({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full border rounded-xl shadow-sm bg-card overflow-hidden">
+      {/* Chat header */}
+      <div className="p-4 border-b flex items-center justify-between bg-card">
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          <h3 className="font-medium tracking-tight">Video Q&A Chat</h3>
+        </div>
+        <Badge variant="outline" className="bg-primary/10 text-primary font-medium border-primary/20">
+          {isLoading ? 'Processing...' : 'Active'}
+        </Badge>
+      </div>
+      
       {/* Messages container */}
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea className="flex-1 p-6">
+        <div className="space-y-6">
           {/* AI welcome message */}
           <div className="flex items-start gap-3">
-            <Avatar className="h-8 w-8 mt-1">
-              <AvatarFallback className="bg-primary/10 text-primary">AI</AvatarFallback>
+            <Avatar className="h-9 w-9 mt-1 border shadow-sm">
+              <AvatarFallback className="bg-primary/10 text-primary font-medium">AI</AvatarFallback>
               <AvatarImage src={aiAvatarSrc} alt="AI Assistant" />
             </Avatar>
-            <div className="rounded-lg bg-muted p-3 text-sm">
+            <div className="rounded-2xl bg-muted p-4 text-sm shadow-sm">
               {welcomeMessage}
             </div>
           </div>
+
+          {messages.length > 0 && (
+            <div className="relative py-2">
+              <Separator className="absolute inset-0 m-auto" />
+              <span className="relative bg-background px-2 text-xs text-muted-foreground mx-auto flex justify-center">
+                {new Date().toLocaleDateString()}
+              </span>
+            </div>
+          )}
 
           {/* Chat messages */}
           {messages.map(message => (
@@ -129,15 +151,15 @@ export default function ChatInterface({
               )}
             >
               {message.role === 'assistant' && (
-                <Avatar className="h-8 w-8 mt-1">
-                  <AvatarFallback className="bg-primary/10 text-primary">AI</AvatarFallback>
+                <Avatar className="h-9 w-9 mt-1 border shadow-sm">
+                  <AvatarFallback className="bg-primary/10 text-primary font-medium">AI</AvatarFallback>
                   <AvatarImage src={aiAvatarSrc} alt="AI Assistant" />
                 </Avatar>
               )}
               
               <div 
                 className={cn(
-                  "rounded-lg p-3 text-sm",
+                  "rounded-2xl p-4 text-sm max-w-[85%] shadow-sm",
                   message.role === 'user' 
                     ? 'bg-primary text-primary-foreground'
                     : 'bg-muted'
@@ -147,8 +169,8 @@ export default function ChatInterface({
               </div>
               
               {message.role === 'user' && (
-                <Avatar className="h-8 w-8 mt-1">
-                  <AvatarFallback>{getUserInitials()}</AvatarFallback>
+                <Avatar className="h-9 w-9 mt-1 border shadow-sm">
+                  <AvatarFallback className="bg-secondary/10 text-secondary font-medium">{getUserInitials()}</AvatarFallback>
                   <AvatarImage src={session?.user?.image || ''} alt={session?.user?.name || 'User'} />
                 </Avatar>
               )}
@@ -158,13 +180,16 @@ export default function ChatInterface({
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex items-start gap-3">
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-9 w-9 border shadow-sm">
                 <AvatarFallback className="bg-primary/10 text-primary">
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </AvatarFallback>
               </Avatar>
-              <div className="rounded-lg bg-muted p-3 text-sm">
-                Thinking...
+              <div className="rounded-2xl bg-muted p-4 text-sm flex items-center gap-2 shadow-sm">
+                <span className="animate-pulse">Thinking</span>
+                <span className="animate-[bounce_1s_ease-in-out_infinite]">.</span>
+                <span className="animate-[bounce_1s_ease-in-out_0.2s_infinite]">.</span>
+                <span className="animate-[bounce_1s_ease-in-out_0.4s_infinite]">.</span>
               </div>
             </div>
           )}
@@ -175,8 +200,8 @@ export default function ChatInterface({
       </ScrollArea>
 
       {/* Input form */}
-      <form onSubmit={onSubmit} className="border-t p-4">
-        <div className="flex gap-2">
+      <form onSubmit={onSubmit} className="border-t p-4 bg-card/80 backdrop-blur-sm">
+        <div className="flex gap-3">
           <div className="relative flex-1">
             <Textarea
               ref={inputRef}
@@ -184,7 +209,7 @@ export default function ChatInterface({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              className="min-h-[60px] resize-none pr-12"
+              className="min-h-[60px] resize-none pr-12 border-muted/50 rounded-xl shadow-sm focus-visible:ring-primary/20"
               maxLength={maxInputLength}
               disabled={isLoading}
             />
@@ -194,15 +219,20 @@ export default function ChatInterface({
                 size="icon" 
                 disabled={isInputEmpty || isLoading}
                 className={cn(
-                  "h-6 w-6 rounded-full",
-                  isInputEmpty || isLoading ? "opacity-50" : ""
+                  "h-8 w-8 rounded-full shadow-sm transition-all",
+                  isInputEmpty || isLoading 
+                    ? "opacity-50" 
+                    : "bg-primary hover:bg-primary/90 hover:scale-105"
                 )}
               >
-                <Send className="h-3 w-3" />
+                <Send className="h-4 w-4" />
                 <span className="sr-only">Send</span>
               </Button>
             </div>
           </div>
+        </div>
+        <div className="mt-2 text-xs text-muted-foreground text-right pr-2">
+          {input.length}/{maxInputLength} characters
         </div>
       </form>
     </div>
