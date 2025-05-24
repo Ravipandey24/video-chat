@@ -522,7 +522,7 @@ const AnimatedGrid = () => {
   );
 };
 
-export function AnimatedBeamDemo() {
+function AnimatedBeamDemo() {
   const containerRef = useRef(null);
   const div1Ref = useRef(null);
   const div2Ref = useRef(null);
