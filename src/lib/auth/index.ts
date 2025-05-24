@@ -15,6 +15,7 @@ declare module "next-auth" {
       name?: string | null;
       email?: string | null;
       image?: string | null;
+      isAdmin?: boolean;
     };
   }
 
@@ -23,6 +24,7 @@ declare module "next-auth" {
     name?: string | null;
     email?: string | null;
     image?: string | null;
+    isAdmin?: boolean;
   }
 }
 
@@ -46,7 +48,7 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           return null;
         }
@@ -72,12 +74,18 @@ export const authOptions: NextAuthOptions = {
             return null;
           }
 
+          // Check if user is approved
+          if (!user.isApproved) {
+            throw new Error("Your account is pending approval. Please wait for administrator approval.");
+          }
+
           // Return user without sensitive data
           return {
             id: user.id,
             name: user.name,
             email: user.email,
             image: user.image,
+            isAdmin: user.isAdmin ?? false,
           };
         } catch (error) {
           console.error("Authorization error:", error);
@@ -93,12 +101,14 @@ export const authOptions: NextAuthOptions = {
         session.user.name = token.name as string;
         session.user.email = token.email as string;
         session.user.image = token.picture as string | undefined;
+        session.user.isAdmin = token.isAdmin as boolean | undefined;
       }
       return session;
     },
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.isAdmin = user.isAdmin;
       }
       return token;
     },

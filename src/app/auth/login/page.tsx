@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
+import { Loader2, Mail, Lock, AlertTriangle, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -17,6 +17,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { DotPattern } from "@/components/magicui/dot-pattern";
+import { cn } from "@/lib/utils";
 
 // Login form schema
 const loginSchema = z.object({
@@ -29,6 +31,7 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const registered = searchParams.get("registered");
   
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,26 +51,34 @@ function LoginForm() {
         return;
       }
     }
-
+    
     try {
       setIsLoading(true);
       
+      // Sign in with credentials
       const result = await signIn("credentials", {
         redirect: false,
         email,
         password,
       });
-
+      
       if (result?.error) {
-        setError("Invalid email or password");
+        // Check for specific error messages
+        if (result.error.includes("pending approval")) {
+          setError("Your account is pending approval. Please wait for administrator approval.");
+        } else {
+          setError("Invalid email or password");
+        }
         return;
       }
-
-      router.refresh();
+      
+      // Redirect to callbackUrl or dashboard
       router.push(callbackUrl);
-    } catch (error) {
+      router.refresh();
+      
+    } catch (error: any) {
       console.error("Login error:", error);
-      setError("An error occurred during login. Please try again.");
+      setError("An error occurred during sign in");
     } finally {
       setIsLoading(false);
     }
@@ -75,16 +86,26 @@ function LoginForm() {
 
   return (
     <form onSubmit={handleSubmit}>
-      <CardHeader className="space-y-1">
+      <CardHeader className="space-y-1 px-8 pt-8">
         <CardTitle className="text-2xl font-bold">Sign in</CardTitle>
         <CardDescription>
           Enter your email and password to access your account
         </CardDescription>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-8">
+        {registered && (
+          <Alert className="bg-muted">
+            <Info className="h-4 w-4" />
+            <AlertDescription>
+              Registration successful! Your account is pending approval by an administrator. You will be able to sign in once approved.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {error && (
           <Alert variant="destructive">
+            <AlertTriangle className="h-4 w-4 mr-2" />
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
@@ -93,15 +114,19 @@ function LoginForm() {
           <label className="text-sm font-medium" htmlFor="email">
             Email
           </label>
-          <Input
-            id="email"
-            type="email"
-            placeholder="name@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="email"
+              type="email"
+              placeholder="name@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              disabled={isLoading}
+              className="h-10 pl-9"
+            />
+          </div>
         </div>
         
         <div className="space-y-2">
@@ -110,20 +135,24 @@ function LoginForm() {
               Password
             </label>
           </div>
-          <Input
-            id="password"
-            type="password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              disabled={isLoading}
+              className="h-10 pl-9"
+            />
+          </div>
         </div>
       </CardContent>
       
-      <CardFooter className="flex flex-col">
-        <Button className="w-full mb-4" disabled={isLoading}>
+      <CardFooter className="flex flex-col gap-4 px-8 pb-8">
+        <Button className="w-full h-11" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -134,34 +163,40 @@ function LoginForm() {
           )}
         </Button>
         
-        {/* <p className="text-center text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
           <Link
             href="/auth/register"
-            className="text-primary hover:underline"
+            className="text-primary hover:underline font-medium"
           >
-            Sign up
+            Register now
           </Link>
-        </p> */}
+        </p>
       </CardFooter>
     </form>
   );
 }
 
-// Main page component with Suspense boundary
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <Card className="w-full max-w-md">
-        <Suspense fallback={
-          <div className="p-6">
-            <Loader2 className="mx-auto h-6 w-6 animate-spin" />
-            <p className="text-center mt-2">Loading...</p>
-          </div>
-        }>
-          <LoginForm />
-        </Suspense>
-      </Card>
+    <div className="relative flex min-h-screen items-center justify-center py-12 px-4 sm:px-6 lg:px-8 overflow-hidden bg-background">
+      <DotPattern
+        className={cn(
+          "absolute inset-0 text-primary/10 [mask-image:radial-gradient(900px_circle_at_center,white,transparent)]",
+        )}
+        glow={true}
+        width={20}
+        height={20}
+      />
+      
+      <div className="z-10 w-full max-w-md">
+        <Card className="overflow-hidden border border-primary/20 shadow-xl bg-gradient-to-b from-background/95 via-background/98 to-background backdrop-blur-md relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-secondary/10 to-primary/10 rounded-xl opacity-30" />
+          <Suspense fallback={<div>Loading...</div>}>
+            <LoginForm />
+          </Suspense>
+        </Card>
+      </div>
     </div>
   );
 }

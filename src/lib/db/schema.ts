@@ -20,6 +20,9 @@ export const users = pgTable("users", {
   emailVerified: timestamp("emailVerified", { mode: "date" }),
   image: text("image"),
   createdAt: timestamp("created_at").defaultNow(),
+  isApproved: boolean("is_approved").default(false), // Add approval status field
+  approvedAt: timestamp("approved_at"), // When the user was approved
+  isAdmin: boolean("is_admin").default(false), // Whether user has admin privileges
 });
 
 /**

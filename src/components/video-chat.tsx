@@ -287,20 +287,22 @@ export default function VideoChat({ videoId }: VideoChatProps) {
     "Ask me anything about what's happening in this video.";
 
   return (
-    <div className="flex flex-col h-full rounded-lg border bg-background">
-      {/* Chat header */}
-      <div className="px-4 py-3 flex items-center border-b">
-        <Avatar className="h-7 w-7 mr-2">
-          <AvatarFallback className="bg-primary/10 text-primary">
-            <Bot className="h-4 w-4" />
-          </AvatarFallback>
-          <AvatarImage src="/ai-avatar.png" alt="AI Assistant" />
-        </Avatar>
-        <h3 className="text-sm font-medium">Video Assistant</h3>
+    <div className="flex flex-col h-full rounded-lg border bg-background shadow-sm overflow-hidden">
+      {/* Simple chat header */}
+      <div className="flex items-center justify-between px-4 py-4 border-b bg-muted/30">
+        <div className="flex items-center gap-2">
+          <Avatar className="h-7 w-7">
+            <AvatarFallback className="bg-primary/10 text-primary">
+              <Bot className="h-4 w-4" />
+            </AvatarFallback>
+            <AvatarImage src="/ai-avatar.png" alt="AI Assistant" />
+          </Avatar>
+          <span className="font-medium text-sm">Video AI Assistant</span>
+        </div>
       </div>
 
-      {/* Messages container */}
-      <ScrollArea ref={viewportRef} className="h-[calc(100vh-40rem)]">
+      {/* Messages container - full height */}
+      <ScrollArea ref={viewportRef} className="flex-1 h-full overflow-auto">
         <div className="px-4 py-5 space-y-6">
           {/* Loading indicator for history */}
           {isLoadingHistory && (
@@ -407,22 +409,22 @@ export default function VideoChat({ videoId }: VideoChatProps) {
           onClick={scrollToBottom}
           size="icon"
           variant="outline"
-          className="absolute bottom-[100px] right-6 rounded-full h-10 w-10 shadow-md border bg-background/90 backdrop-blur-sm z-10"
+          className="absolute bottom-[90px] right-6 rounded-full h-9 w-9 shadow-md border bg-background/90 backdrop-blur-sm z-10"
         >
           <ArrowDown className="h-4 w-4" />
           <span className="sr-only">Scroll to bottom</span>
         </Button>
       )}
 
-      {/* Input form */}
-      <div className="p-4 pt-3 border-t bg-background/95 backdrop-blur">
+      {/* Improved input form */}
+      <div className="p-3 border-t bg-background">
         {error && (
           <div className="mb-3 text-sm text-red-500 bg-red-50 p-3 rounded-md">
             Error: {error.message}. Please try again.
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit}>
           <div className="relative">
             <Textarea
               ref={inputRef}
@@ -430,11 +432,11 @@ export default function VideoChat({ videoId }: VideoChatProps) {
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               placeholder="Ask about the video..."
-              className="min-h-[60px] resize-none pr-12 py-3 bg-background"
+              className="min-h-[50px] max-h-[80px] resize-none pr-12 py-2.5 bg-background rounded-lg pl-4 text-sm"
               maxLength={500}
               disabled={isLoading || isLoadingHistory}
             />
-            <div className="absolute right-3 bottom-3">
+            <div className="absolute right-3 bottom-2.5">
               <Button
                 type="submit"
                 size="icon"
@@ -450,10 +452,6 @@ export default function VideoChat({ videoId }: VideoChatProps) {
                 <span className="sr-only">Send</span>
               </Button>
             </div>
-          </div>
-
-          <div className="text-xs text-center text-muted-foreground">
-            <p>AI responses are generated based on the video content</p>
           </div>
         </form>
       </div>

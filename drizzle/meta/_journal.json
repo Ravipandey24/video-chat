@@ -22,6 +22,20 @@
       "when": 1741817670016,
       "tag": "0002_little_bulldozer",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1748107282132,
+      "tag": "0003_far_gorgon",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1748113711735,
+      "tag": "0004_talented_lyja",
+      "breakpoints": true
     }
   ]
 }

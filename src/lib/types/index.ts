@@ -4,6 +4,7 @@ export interface User {
   name?: string | null;
   email?: string | null;
   image?: string | null;
+  isAdmin?: boolean;
 }
 
 export interface Session {

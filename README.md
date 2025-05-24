@@ -29,6 +29,167 @@ The application uses a streaming architecture for the chat interface, leveraging
 - **State Management**: React Hooks and Context API
 - **Deployment**: Vercel
 
+## Video Upload and Analysis System
+
+The video processing system is a core feature of the application, enabling intelligent content understanding through frame extraction and AI analysis.
+
+### System Architecture Diagram
+
+```
+┌─────────────────┐           ┌───────────────┐           ┌──────────────────┐
+│                 │           │               │           │                  │
+│  Client Browser ├───────────►  Next.js API  ├───────────►  Supabase Storage │
+│                 │           │               │           │                  │
+└────────┬────────┘           └───────┬───────┘           └─────────┬────────┘
+         │                            │                             │
+         │                            │                             │
+         │                    ┌───────▼───────┐           ┌─────────▼────────┐
+         │                    │               │           │                  │
+         │                    │ OpenAI Vision ◄───────────┤ Extracted Frames │
+         │                    │     API       │           │                  │
+         └───────────────────►│               │           └──────────────────┘
+                              └───────┬───────┘
+                                      │
+                              ┌───────▼───────┐
+                              │               │
+                              │  PostgreSQL   │
+                              │   Database    │
+                              │               │
+                              └───────────────┘
+```
+
+### Video Upload Process
+
+The video upload system employs a sophisticated multi-stage process:
+
+1. **Client-side Validation**:
+   - The system validates video file type (MP4, MOV, WebM)
+   - Checks file size (max 50MB)
+   - Verifies video duration (max 10 minutes)
+   - Provides real-time feedback with progress indicators
+
+2. **Frame Extraction**:
+   - The system extracts key frames using an adaptive sampling approach:
+     - First minute: 1 frame per second
+     - Minutes 1-5: 1 frame per 2 seconds
+     - Beyond 5 minutes: 1 frame per 5 seconds
+   - Frames are normalized to a maximum dimension of 720px for efficient processing
+   - A canvas element is used for rendering and extracting frames as JPEG images
+
+3. **Storage Process**:
+   - The original video is uploaded to Supabase Storage with a unique filename
+   - Extracted frames are stored with position-specific naming convention
+   - The first frame is automatically set as the video thumbnail
+   - Database records are created to track video metadata and frame URLs
+
+4. **Frame Analysis Flow**:
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│  Extract Frame  ├────►│ Upload to Cloud ├────►│ Process with AI │
+│                 │     │    Storage      │     │   Vision API    │
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                          │
+                                                          ▼
+                                                ┌─────────────────┐
+                                                │                 │
+                                                │  Store Analysis │
+                                                │   in Database   │
+                                                │                 │
+                                                └─────────────────┘
+```
+
+### Frame Analysis System
+
+The frame analysis system leverages OpenAI's Vision API to understand video content:
+
+1. **AI Vision Processing**:
+   - Each frame is analyzed individually by GPT-4o-mini via OpenAI's Vision API
+   - The system uses a descriptive prompt: "Describe this frame from the video in detail"
+   - Analysis focuses on objects, people, actions, text, and settings
+   - Processing is optimized with batched requests to maximize throughput
+
+2. **Database Storage**:
+   - Frame analyses are stored in the `frame_analyses` table with the following schema:
+     - `id`: Unique identifier
+     - `frameUrl`: URL of the analyzed frame
+     - `description`: AI-generated description of the frame content
+     - `position`: Sequential position in the video timeline
+     - `videoId`: Reference to the parent video
+     - `createdAt`/`updatedAt`: Timestamps for tracking
+
+3. **Analysis Consolidation**:
+   - Frame descriptions are chronologically ordered by position
+   - This creates a comprehensive sequential understanding of the video content
+   - Error handling ensures failed analyses don't block the entire process
+
+### Chat Interface and Video Content Querying
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│                 │     │                 │     │                 │
+│  User Question  ├────►│  Retrieve Frame ├────►│  Format Frames  │
+│   about Video   │     │    Analyses     │     │ as LLM Context  │
+│                 │     │                 │     │                 │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+                                                          │
+                                                          ▼
+                                                ┌─────────────────┐     ┌─────────────────┐
+                                                │                 │     │                 │
+                                                │  Generate AI    ├────►│ Stream Response │
+                                                │    Response     │     │    to Client    │
+                                                │                 │     │                 │
+                                                └─────────────────┘     └─────────────────┘
+```
+
+1. **Question Processing**:
+   - Users ask questions about video content through a chat interface
+   - Questions are paired with video context (videoId) in API requests
+   - The system maintains conversation history for contextual awareness
+
+2. **Frame Analysis Retrieval**:
+   - All frame analyses for the specified video are retrieved from the database
+   - Analyses are ordered chronologically by frame position
+   - The system combines descriptions into a comprehensive context for the AI
+
+3. **AI Response Generation**:
+   - The system provides the AI with:
+     - Video title and description
+     - Consolidated frame analyses as context
+     - Conversation history
+     - Current user question
+   - OpenAI's text model (not vision) generates responses based on pre-analyzed frames
+   - Responses are streamed in real-time to the client using Server-Sent Events
+
+4. **Knowledge Utilization**:
+   - The AI references specific visual elements from frame descriptions
+   - Responses are grounded in actual video content via frame analysis
+   - The system can explain limitations when questions go beyond available analysis
+
+### Performance Optimizations
+
+1. **Adaptive Frame Sampling**:
+   - Density of frame extraction varies based on video duration
+   - This balances processing costs with comprehensive coverage
+   - Videos over 5 minutes use sparser sampling to maintain reasonable frame counts
+
+2. **Parallel Processing**:
+   - Frame uploads and analysis happen in batches of 5 concurrent operations
+   - This maximizes throughput while respecting API rate limits
+   - Progress tracking provides real-time feedback during long operations
+
+3. **Progressive Enhancement**:
+   - The system starts processing frames immediately after upload
+   - Users can begin chatting even before all frames are analyzed
+   - Analyzed frames are incorporated into the context as they become available
+
+4. **Error Resilience**:
+   - The system handles failures in frame extraction, upload, or analysis
+   - Failed frames are marked in the database to prevent reprocessing
+   - The application continues processing other frames when individual operations fail
+
 ## Core Features
 
 1. **User Authentication**: Secure registration and login system built with NextAuth.js

@@ -15,7 +15,9 @@ import {
   LogOut,
   User,
   Video,
-  MessageCircle
+  MessageCircle,
+  Settings,
+  UserCheck
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +41,7 @@ import {
 } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 
 interface NavbarProps {
   user?: Session["user"];
@@ -115,44 +118,53 @@ const Navbar: React.FC<NavbarProps> = ({ user }) => {
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="ml-2 flex items-center gap-2 h-9 border-muted/60 shadow-sm"
-                  >
-                    {user.image ? (
-                      <Image
-                        src={user.image}
-                        alt={user.name || "User profile"}
-                        width={24}
-                        height={24}
-                        className="rounded-full"
+                  <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-full">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage
+                        src={user?.image || ""}
+                        alt={user?.name || "User avatar"}
                       />
-                    ) : (
-                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary font-medium">
-                        {(user.name?.charAt(0) || "U").toUpperCase()}
-                      </div>
-                    )}
-                    <span className="font-medium">{user.name?.split(' ')[0]}</span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                      <AvatarFallback className="bg-primary/10">
+                        {user?.name?.slice(0, 2) || "U"}
+                      </AvatarFallback>
+                    </Avatar>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56 shadow-lg">
+                <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel className="font-normal">
-                    <div>
-                      <p className="font-medium">{user.name}</p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {user.email}
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user?.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user?.email}
                       </p>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link href="/dashboard" className="cursor-pointer">
+                      <LayoutDashboard className="w-4 h-4 mr-2" />
+                      Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/settings" className="cursor-pointer">
+                      <Settings className="w-4 h-4 mr-2" />
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/admin/users" className="cursor-pointer">
+                      <UserCheck className="w-4 h-4 mr-2" />
+                      User Management
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
+                    className="cursor-pointer text-destructive focus:bg-destructive/10"
                     onClick={handleSignOut}
-                    className="cursor-pointer text-destructive focus:text-destructive"
                   >
-                    <LogOut className="mr-2 h-4 w-4" />
-                    <span>Sign out</span>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Log out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

@@ -43,10 +43,12 @@ export async function POST(req: NextRequest) {
       name,
       email,
       passwordHash: hashedPassword,
+      isApproved: false,
+      isAdmin: false,
     });
     
     return NextResponse.json(
-      { message: "User registered successfully" },
+      { message: "Registration successful. Your account is pending approval." },
       { status: 201 }
     );
   } catch (error) {
